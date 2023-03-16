@@ -35,13 +35,29 @@ export const list: RequestHandler = async (req, res) => {
 
 export const send: RequestHandler = async (req, res) => {
   try {
-    const { jid, type = 'number', message, options } = req.body;
+    const { jid, type = 'number', message, options, isBufferFiles = false } = req.body;
     const session = getSession(req.params.sessionId)!;
-
+    
     const exists = await jidExists(session, jid, type);
     if (!exists) return res.status(400).json({ error: 'JID does not exists' });
 
-    const result = await session.sendMessage(jid, message, options);
+    let bufferMessage;
+
+    if(message.image) {
+      bufferMessage = {
+        image: Buffer.from(message.image, 'base64')
+      }
+    } else if (message.video) {
+      bufferMessage = {
+        video: Buffer.from(message.video, 'base64')
+      }
+    } else if (message.audio) {
+      bufferMessage = {
+        audio: Buffer.from(message.audio, 'base64')
+      }
+    }
+  
+    const result = await session.sendMessage(exists.resultjid, isBufferFiles ? bufferMessage : message , options);
     res.status(200).json(result);
   } catch (e) {
     const message = 'An error occured during message send';
@@ -50,7 +66,7 @@ export const send: RequestHandler = async (req, res) => {
   }
 };
 
-export const sendBulk: RequestHandler = async (req, res) => {
+export const sendBulk: RequestHandler = async (req, res) => { 
   const session = getSession(req.params.sessionId)!;
   const results: { index: number; result: proto.WebMessageInfo | undefined }[] = [];
   const errors: { index: number; error: string }[] = [];
@@ -103,3 +119,4 @@ export const download: RequestHandler = async (req, res) => {
     res.status(500).json({ error: message });
   }
 };
+
